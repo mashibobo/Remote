@@ -9,7 +9,7 @@ import {
   Computer,
   Mic,
   Play,
-  Stop,
+  Square, // Replacing Stop with Square which is available in lucide-react
 } from "lucide-react";
 
 const StreamView: React.FC = () => {
@@ -94,7 +94,7 @@ const StreamView: React.FC = () => {
             >
               {activeStream.desktop ? (
                 <>
-                  <Stop className="h-4 w-4 mr-2" /> Stop Desktop
+                  <Square className="h-4 w-4 mr-2" /> Stop Desktop
                 </>
               ) : (
                 <>
@@ -113,7 +113,7 @@ const StreamView: React.FC = () => {
             >
               {activeStream.camera ? (
                 <>
-                  <Stop className="h-4 w-4 mr-2" /> Stop Camera
+                  <Square className="h-4 w-4 mr-2" /> Stop Camera
                 </>
               ) : (
                 <>
@@ -132,7 +132,7 @@ const StreamView: React.FC = () => {
             >
               {activeStream.audio ? (
                 <>
-                  <Stop className="h-4 w-4 mr-2" /> Stop Audio
+                  <Square className="h-4 w-4 mr-2" /> Stop Audio
                 </>
               ) : (
                 <>
