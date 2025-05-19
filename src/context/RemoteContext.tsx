@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Computer, Category, ActiveStream, ViewMode } from "../types";
 import { toast } from "@/components/ui/sonner";
@@ -253,36 +252,36 @@ export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const uploadFile = async (path: string, file: File): Promise<void> => {
-    if (!activeComputer) return;
+    if (!activeComputer) return Promise.resolve();
     
     // Mock file upload
-    return new Promise((resolve) => {
-      toast.promise(
-        new Promise((res) => setTimeout(res, 2000)),
-        {
-          loading: `Uploading ${file.name}...`,
-          success: `${file.name} uploaded to ${path}`,
-          error: "Upload failed",
-        }
-      ).then(() => resolve());
+    return new Promise<void>((resolve) => {
+      const loadingToast = toast.loading(`Uploading ${file.name}...`);
+      
+      // Simulate upload delay
+      setTimeout(() => {
+        toast.dismiss(loadingToast);
+        toast.success(`${file.name} uploaded to ${path}`);
+        resolve();
+      }, 2000);
     });
   };
 
   const downloadFile = async (path: string): Promise<void> => {
-    if (!activeComputer) return;
+    if (!activeComputer) return Promise.resolve();
     
     // Mock file download
     const filename = path.split("/").pop() || "file";
     
-    return new Promise((resolve) => {
-      toast.promise(
-        new Promise((res) => setTimeout(res, 2000)),
-        {
-          loading: `Downloading ${filename}...`,
-          success: `${filename} downloaded successfully`,
-          error: "Download failed",
-        }
-      ).then(() => resolve());
+    return new Promise<void>((resolve) => {
+      const loadingToast = toast.loading(`Downloading ${filename}...`);
+      
+      // Simulate download delay
+      setTimeout(() => {
+        toast.dismiss(loadingToast);
+        toast.success(`${filename} downloaded successfully`);
+        resolve();
+      }, 2000);
     });
   };
 
