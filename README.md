@@ -1,73 +1,93 @@
-# Welcome to your Lovable project
 
-## Project info
+# Remote Management System
 
-**URL**: https://lovable.dev/projects/8d3a70bd-e25c-434a-a3f6-3f1c7b4b7e9c
+A comprehensive solution for managing and monitoring remote computers.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Real-time computer monitoring
+- Remote desktop viewing
+- File transfer capabilities
+- Command execution
+- Location tracking
+- Keylogger functionality
+- Password recovery simulation
 
-**Use Lovable**
+## Project Structure
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/8d3a70bd-e25c-434a-a3f6-3f1c7b4b7e9c) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+remote-management-system/
+├── client/                  # C# client application
+│   ├── RemoteClient.cs      # Main client code
+│   ├── RemoteClient.csproj  # Client project file
+│   └── build.bat            # Build script for Windows
+├── public/                  # Static assets
+├── src/                     # Source code for React app
+│   ├── api/                 # API utilities
+│   ├── components/          # React components
+│   ├── context/             # React contexts
+│   ├── hooks/               # Custom hooks
+│   ├── lib/                 # Utility functions
+│   ├── pages/               # Page components
+│   ├── server/              # Server-side code
+│   └── types.ts             # TypeScript type definitions
+├── package.json             # Frontend dependencies
+└── package-server.json      # Server dependencies
 ```
 
-**Edit a file directly in GitHub**
+## Setting up the Server
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Make sure you have Node.js installed (v14 or higher)
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Start the development server:
+   ```
+   npm run dev
+   ```
+4. The application will be available at http://localhost:3000
+5. The API server will run on port 3001
 
-**Use GitHub Codespaces**
+## Setting up the Client
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Navigate to the client directory
+2. Make sure you have .NET SDK installed (5.0 or higher)
+3. Update the server URL in `RemoteClient.cs` to point to your server
+4. Build the client:
+   ```
+   dotnet build
+   ```
+   Or on Windows, you can use:
+   ```
+   build.bat
+   ```
+5. Distribute the compiled client to remote computers you want to manage
 
-## What technologies are used for this project?
+## Deployment
 
-This project is built with:
+To deploy the application:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. Build the React frontend:
+   ```
+   npm run build
+   ```
+2. Set up your server with Node.js
+3. Copy the contents of the `dist` folder to your server
+4. Start the server:
+   ```
+   node server.js
+   ```
 
-## How can I deploy this project?
+## Security Considerations
 
-Simply open [Lovable](https://lovable.dev/projects/8d3a70bd-e25c-434a-a3f6-3f1c7b4b7e9c) and click on Share -> Publish.
+This application has powerful capabilities that could be misused. Always:
 
-## Can I connect a custom domain to my Lovable project?
+- Use strong authentication
+- Keep the client application secure
+- Obtain proper authorization before installing on any computer
+- Follow all applicable laws and regulations
 
-Yes, you can!
+## License
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is licensed under the MIT License - see the LICENSE file for details.

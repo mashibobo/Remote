@@ -12,7 +12,7 @@ import {
   Camera,
   Key,
   MapPin,
-  Settings
+  LoaderCircle
 } from "lucide-react";
 import ComputerCard from "./ComputerCard";
 import ComputerList from "./ComputerList";
@@ -23,6 +23,7 @@ import FileExplorer from "./FileExplorer";
 import LocationView from "./LocationView";
 import KeyloggerView from "./KeyloggerView";
 import PasswordRecovery from "./PasswordRecovery";
+import WaitingAnimation from "./WaitingAnimation";
 
 const Dashboard: React.FC = () => {
   const { computers, categories, viewMode, toggleViewMode, activeComputer, setActiveComputer } = useRemote();
@@ -142,25 +143,29 @@ const Dashboard: React.FC = () => {
           </Tabs>
         ) : (
           <div>
-            {viewMode === "grid" ? (
-              <>
-                {Object.entries(computersByCategory).map(([categoryId, computers]) => (
-                  <div key={categoryId} className="mb-8">
-                    <h2 className="text-xl font-semibold mb-4">
-                      {categoryId === "uncategorized"
-                        ? "Uncategorized"
-                        : categories.find((c) => c.id === categoryId)?.name || "Unknown Category"}
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {computers.map((computer) => (
-                        <ComputerCard key={computer.id} computer={computer} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </>
+            {computers.length === 0 ? (
+              <WaitingAnimation />
             ) : (
-              <ComputerList />
+              viewMode === "grid" ? (
+                <>
+                  {Object.entries(computersByCategory).map(([categoryId, computers]) => (
+                    <div key={categoryId} className="mb-8">
+                      <h2 className="text-xl font-semibold mb-4">
+                        {categoryId === "uncategorized"
+                          ? "Uncategorized"
+                          : categories.find((c) => c.id === categoryId)?.name || "Unknown Category"}
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {computers.map((computer) => (
+                          <ComputerCard key={computer.id} computer={computer} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <ComputerList />
+              )
             )}
           </div>
         )}
