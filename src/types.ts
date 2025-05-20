@@ -1,40 +1,39 @@
 
-export type Category = {
-  id: string;
-  name: string;
-};
+export type ViewMode = "grid" | "list";
 
-export type ComputerStatus = 'online' | 'offline' | 'connecting';
-
-export type Computer = {
+export interface Computer {
   id: string;
   hostname: string;
   username: string;
   os: string;
   ip: string;
   categoryId: string;
-  status: ComputerStatus;
+  status: "online" | "offline";
   lastSeen: string;
   location?: {
     latitude: number;
     longitude: number;
     address?: string;
   };
-};
+  lastScreenshot?: string;
+}
 
-export type StreamQuality = {
+export interface Category {
+  id: string;
+  name: string;
+}
+
+export interface StreamQuality {
   fps: number;
   resolution: {
     width: number;
     height: number;
   };
-};
+}
 
-export type ActiveStream = {
+export interface ActiveStream {
   desktop: boolean;
   camera: boolean;
   audio: boolean;
   quality: StreamQuality;
-};
-
-export type ViewMode = 'grid' | 'list';
+}

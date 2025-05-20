@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useRemote } from "@/context/RemoteContext";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
@@ -9,7 +9,8 @@ import {
   Computer,
   Mic,
   Play,
-  Square, // Replacing Stop with Square which is available in lucide-react
+  Square,
+  RefreshCw,
 } from "lucide-react";
 
 const StreamView: React.FC = () => {
@@ -20,7 +21,31 @@ const StreamView: React.FC = () => {
     toggleCameraStream,
     toggleAudioStream,
     updateStreamQuality,
+    refreshComputers,
   } = useRemote();
+  
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Refresh screenshot periodically when streaming is active
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (activeStream.desktop && activeComputer) {
+      interval = setInterval(() => {
+        refreshComputers();
+      }, 2000); // Refresh every 2 seconds
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeStream.desktop, activeComputer, refreshComputers]);
+  
+  const handleRefresh = () => {
+    setRefreshing(true);
+    refreshComputers();
+    setTimeout(() => setRefreshing(false), 1000);
+  };
 
   if (!activeComputer) {
     return (
@@ -38,14 +63,23 @@ const StreamView: React.FC = () => {
       <div className="flex-1 bg-black relative">
         {activeStream.desktop ? (
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/10 flex items-center justify-center">
-            {/* This would be replaced with actual stream in a real implementation */}
-            <div className="w-full h-full p-4 flex items-center justify-center">
-              <img
-                src="/placeholder.svg"
-                alt="Desktop Stream"
-                className="max-w-full max-h-full object-contain rounded-md opacity-90"
-              />
-            </div>
+            {activeComputer.lastScreenshot ? (
+              <div className="w-full h-full p-4 flex items-center justify-center">
+                <img
+                  src={activeComputer.lastScreenshot}
+                  alt="Desktop Stream"
+                  className="max-w-full max-h-full object-contain rounded-md"
+                />
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground">
+                <p>Waiting for desktop stream...</p>
+                <Button onClick={handleRefresh} variant="outline" className="mt-4">
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
