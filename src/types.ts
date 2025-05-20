@@ -8,7 +8,7 @@ export interface Computer {
   os: string;
   ip: string;
   categoryId: string;
-  status: "online" | "offline";
+  status: "online" | "offline" | "connecting";
   lastSeen: string;
   location?: {
     latitude: number;
